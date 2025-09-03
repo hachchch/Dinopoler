@@ -3,6 +3,15 @@ function generateInstance(){
 inst=[];
 if(!pose){
     for(const o of obj){
+      const id=mother(o.motherid);//ラグの原因<-改善？
+            if(id!=-1){
+                if(entity[id].info.attribute!="player"){
+                o.mov=entity[id].mov.slice();
+        o.info=entity[id].info;
+        o.size=entity[id].scale;
+        o.rot=entity[id].rot;
+                }
+            }
       if(!o.info.hide){
         inst.push(o.color[0]);
         inst.push(o.color[1]);
@@ -15,13 +24,20 @@ if(!pose){
         inst.push(o.direction[0]);
         inst.push(o.direction[1]);
         inst.push(o.size);
+        if(o.info.attribute!="util" || o.info.dynamic){
+          inst.push(1);
+        }else{
+          inst.push(0);
+        }
       }
     }
   }
 };
 async function init(){
+  if(canvas.width!=window.innerWidth){
   canvas.width=window.innerWidth;
 canvas.height=window.innerHeight;
+  }
 // webgpuコンテキストの取得
 const context = canvas.getContext('webgpu');
 var multisampleTexture;
@@ -55,13 +71,18 @@ fn rotation(v: vec2<f32>,theta: f32) -> vec2<f32>{
     return hypot(v)*vec2<f32>(cos(u+t),sin(u+t));
 }
 @vertex
-fn main(@location(0) position: vec2<f32>,@location(1) color: vec3<f32>,@location(2) rot:f32,@location(3) movement:vec2<f32>,@location(4) model: vec2<f32>,@location(5) direction: vec2<f32>,@location(6) size:f32) -> VertexOutput {
+fn main(@location(0) position: vec2<f32>,@location(1) color: vec3<f32>,@location(2) rot:f32,@location(3) movement:vec2<f32>,@location(4) model: vec2<f32>,@location(5) direction: vec2<f32>,@location(6) size:f32,@location(7) isDinamic:f32) -> VertexOutput {
   var output : VertexOutput;
   var q=rotation((position+model)*direction,rot);
   //q.y*=-1;
   q.x*=size;
   q.y*=size;
-  var p=vec4<f32>(q+movement+uniforms.camera,0,1);
+  var p=vec4<f32>(0,0,0,0);
+  if(isDinamic==0){
+  p=vec4<f32>(q+movement,0,1);
+  }else{
+  p=vec4<f32>(q+movement+uniforms.camera,0,1);
+  }
   p*=vec4<f32>(uniforms.aspect.x,-1,1,1);
   output.Position=p;
   output.fragColor=vec4<f32>(color,1);
@@ -76,7 +97,6 @@ generateVertex();
 function render(){
   canvas.width=window.innerWidth;
 canvas.height=window.innerHeight;
-generateInstance();
 //頂点配列
 const quadVertexArray = new Float32Array(vertex);
 // 頂点データを作成.
@@ -140,7 +160,7 @@ const pipeline = g_device.createRenderPipeline({
         ],
       },
         {//インスタンス
-       	  arrayStride: 4*(3+1+2+2+2+1),
+       	  arrayStride: 4*(3+1+2+2+2+1+1),
           stepMode: 'instance',
           attributes: [
             {
@@ -171,6 +191,11 @@ const pipeline = g_device.createRenderPipeline({
             {
               shaderLocation: 6,
               offset: 4*(3+1+2+2+2),
+              format: 'float32'
+            },
+            {
+              shaderLocation: 7,
+              offset: 4*(3+1+2+2+2+1),
               format: 'float32'
             }
           ]
@@ -226,8 +251,6 @@ const textureView = context.getCurrentTexture().createView();
       if (multisampleTexture) {
         multisampleTexture.destroy();
       }
- 
-      // キャンバスのサイズに一致する新しいマルチサンプルテクスチャを作成します
       multisampleTexture = g_device.createTexture({
         format: context.getCurrentTexture().format,
         usage: GPUTextureUsage.RENDER_ATTACHMENT,
@@ -239,21 +262,20 @@ const textureView = context.getCurrentTexture().createView();
       {
         view: multisampleTexture.createView(),
         resolveTarget:textureView,
-        clearValue: {r:0.42,g:0.8,b:0.855,a:1.0},
+        clearValue: clearValue,
         loadOp: 'clear',
         storeOp: 'store',
       },
     ]
   };
+  //エンコーダー
   const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-
-  //レンダーパイプラインを与える
   passEncoder.setPipeline(pipeline);
   passEncoder.setBindGroup(0, bindGroup);
   passEncoder.setVertexBuffer(0, verticesBuffer);
   passEncoder.setIndexBuffer(indicesBuffer, 'uint16');
   passEncoder.setVertexBuffer(1, instancesBuffer);
-  passEncoder.drawIndexed(quadIndexArray.length,Math.floor(instancePositions.length/(3+1+2+2+2+1)));
+  passEncoder.drawIndexed(quadIndexArray.length,Math.floor(instancePositions.length/(3+1+2+2+2+1+1)));
   passEncoder.end();
   g_device.queue.submit([commandEncoder.finish()]);
     requestAnimationFrame(render);
