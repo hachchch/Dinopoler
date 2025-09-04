@@ -51,13 +51,41 @@ function add(position,modelname,info,size){
 }
 async function parsemodels(){
     for(const m of modelnames){
+        if(!m.preload){
+        sintyoku();
         await loadModel(m.name,m.pos);
+        }
     }
 }
-const modelnames=[];
-function addModel(name,pos){
-    modelnames.push({name:name,pos:pos});
+async function preload(){
+    for(const m of modelnames){
+        if(m.preload){
+        await loadModel(m.name,m.pos);
+        }
+    }
+    preloaded=true;
 }
+const modelnames=[];
+function addModel(name,pos,pre){
+    modelnames.push({name:name,pos:pos,preload:pre});
+}
+function sintyoku(){
+    for(const e of entity){
+        deleteEntity(e.seed);
+    }
+    printL("numbers",[0,0.2],false,union(numbers(Math.round(100*model.length/modelnames.length)),["percent"]));
+    prints("print",[0,0],false,union(union(["sentan"],longhire(Math.round(100*model.length/modelnames.length))),["atama"]));
+}
+function longhire(amount){
+    const res=[];
+    for(let k=0; k<amount; ++k){
+        res.push("hire");
+    }
+    return res;
+}
+addModel("sentan",[3,8],true);
+addModel("atama",[7,8],true);
+addModel("hire",[4,8],true);
 addModel("tatecircle",[8,8]);
 addModel("tate",[13,8]);
 addModel("redcoral",[8,8]);
@@ -98,16 +126,17 @@ addModel("p",[8,8]);
 addModel("l",[8,8]);
 addModel("e",[8,8]);
 addModel("r",[8,8]);
-addModel("0",[8,8]);
-addModel("1",[8,8]);
-addModel("2",[8,8]);
-addModel("3",[8,8]);
-addModel("4",[8,8]);
-addModel("5",[8,8]);
-addModel("6",[8,8]);
-addModel("7",[8,8]);
-addModel("8",[8,8]);
-addModel("9",[8,8]);
+addModel("0",[8,8],true);
+addModel("1",[8,8],true);
+addModel("2",[8,8],true);
+addModel("3",[8,8],true);
+addModel("4",[8,8],true);
+addModel("5",[8,8],true);
+addModel("6",[8,8],true);
+addModel("7",[8,8],true);
+addModel("8",[8,8],true);
+addModel("9",[8,8],true);
+addModel("percent",[8,8],true);
 addModel("cube",[8,8]);
 addModel("cubepink",[8,8]);
 addModel("cube_gray",[8,8]);
@@ -153,3 +182,4 @@ addModel("golden1",[8,8]);
 addModel("golden2",[8,8]);
 addModel("golden3",[8,8]);
 addModel("golden4",[8,8]);
+preload();
