@@ -6,6 +6,7 @@ var obj=[];
 var modelLoaded=false;
 var inst=[];
 var gametime;
+var preloaded=false;
 var zclicked=false;
 var aspect=1;
 var key="";
@@ -16,6 +17,7 @@ const fps=120;
 var initialized=false;
 var transformed=false;
 var clearValue={r:0.42,g:0.8,b:0.855,a:1.0};
+var fired=false;
 var isTitle=true;
 const distext=["scoredis","pinkshelldis","conchdis","redcoraldis"];
 var pose=false;
@@ -122,6 +124,10 @@ function rect(xy,modelij,color,rot,info,seed,scale,mid){
     });
 }
 window.addEventListener("keydown",e=>{
+    if(!fired && preloaded){
+        init();
+        fired=true;
+    }
     key=e.code;
     if(e.code=="KeyW" || e.code=="ArrowUp"){
         mkeys.up=true;
@@ -142,7 +148,7 @@ window.addEventListener("keydown",e=>{
         }
     }
     if(e.code=="KeyI"){
-        //particle([0,0],1000,1)
+        particle([0,0],1000,1)
     }
     if(e.code=="KeyZ" || e.code=="Enter" || e.code=="Space"){
         if(!zclicked && modelLoaded){
@@ -188,6 +194,9 @@ function submit(){
 async function titleScreen(){
     initialized=true;
     await parsemodels();
+    for(const e of entity){
+        deleteEntity(e.seed);
+    }
     modelLoaded=true;
     add([0,0],"egg",{name:"egg"});
     add([-0.66,-0.5],"D",{});
@@ -216,11 +225,11 @@ function gamestart(){
     add([-0.06,-0.2],"cube",{name:"combo1",dynamic:false,attribute:"util",hide:true},0.3);
     add([0,-0.2],"cube",{name:"combo2",dynamic:false,attribute:"util",hide:true},0.3);
     add([0.06,-0.2],"cube",{name:"combo3",dynamic:false,attribute:"util",hide:true},0.3);
-    add([0.95/aspect,0.9],"cube2",{name:"tidalpower5",dynamic:false,attribute:"util",hide:false},0.6);
-    add([0.95/aspect-0.1,0.9],"cube2",{name:"tidalpower4",dynamic:false,attribute:"util",hide:false},0.6);
-    add([0.95/aspect-0.2,0.9],"cube2",{name:"tidalpower3",dynamic:false,attribute:"util",hide:false},0.6);
-    add([0.95/aspect-0.3,0.9],"cube2",{name:"tidalpower2",dynamic:false,attribute:"util",hide:false},0.6);
-    add([0.95/aspect-0.4,0.9],"cube2",{name:"tidalpower1",dynamic:false,attribute:"util",hide:false},0.6);
+    add([0.95/aspect,0.9],"cube2",{name:"tidalpower5",dynamic:false,attribute:"util",hide:false,gray:false},0.6);
+    add([0.95/aspect-0.1,0.9],"cube2",{name:"tidalpower4",dynamic:false,attribute:"util",hide:false,gray:false},0.6);
+    add([0.95/aspect-0.2,0.9],"cube2",{name:"tidalpower3",dynamic:false,attribute:"util",hide:false,gray:false},0.6);
+    add([0.95/aspect-0.3,0.9],"cube2",{name:"tidalpower2",dynamic:false,attribute:"util",hide:false,gray:false},0.6);
+    add([0.95/aspect-0.4,0.9],"cube2",{name:"tidalpower1",dynamic:false,attribute:"util",hide:false,gray:false},0.6);
 
     add([0.95/aspect-0.11,-0.8],"heart",{name:"life1",dynamic:false,attribute:"util",hide:false},0.6);
     add([0.95/aspect-0.22,-0.8],"heart",{name:"life2",dynamic:false,attribute:"util",hide:false},0.6);
@@ -287,7 +296,7 @@ function playerAction(){
     var s=0.01;
     game.otamamove.interval=5;
     if(mkeys.submit && game.tidalpower.value>0 && game.hidan.anime<5){
-        game.otamamove.interval=4;
+        game.otamamove.interval=3;
         timerevent(game.tidalpower.consumption,e=>{
             game.tidalpower.value--;
             particle(vec.prod(camera,-1),1,0.1);
@@ -485,7 +494,7 @@ function modelchange(seed,name){
     let id=entity.findIndex(e=>e.seed==seed);
     if(id!=-1){
     add(entity[id].mov,name,entity[id].info,entity[id].scale);
-    deleteEntity(seed);
+    deleteEntityi(id);
     }
 }
 function deleteObj(seed){
@@ -501,10 +510,15 @@ function timerevent(p,callback){
 //enemy配列が必要。
 function spawnAction(){
     //スポーン
+    var loop=0;
     if(game.enemy<game.maxEnemy){
         var pos=vec.dec([math.rand(-game.radius,game.radius),math.rand(-game.radius,game.radius)],camera);
     while(entity.findIndex(e=>e.info.attribute=="enemy" && vec.length(vec.dec(e.mov,pos))<=game.undesire)!=-1 || vec.length(vec.sum(camera,pos))<=game.minradius){
+        loop++;
         pos=vec.dec([math.rand(-game.radius,game.radius),math.rand(-game.radius,game.radius)],camera);
+        if(loop>100){
+            break;
+        }
     }
         spawnEnemy(pos);
     }
@@ -522,14 +536,22 @@ function setBGM(name,volume){
     a.volume=volume;
     a.play();
 }
+//諸悪の根源(もっともラグい)
 function deleteEntity(seed){
-    for(const e of entity){
-        if(e.seed==seed){
-            for(let k=0; k<e.group.length; ++k){
-                deleteObj(e.group[k]);
-            }
-            entity=deleteIndex(entity,entity.findIndex(ev=>ev.seed==seed)).slice();
+    const id=entity.findIndex(e=>e.seed==seed);
+    if(id!=-1){
+        for(let k=0; k<entity[id].group.length; ++k){
+            deleteObj(entity[id].group[k]);
         }
+        entity=deleteIndex(entity,id).slice();
+    }
+}
+function deleteEntityi(id){
+    if(id!=-1){
+        for(let k=0; k<entity[id].group.length; ++k){
+            deleteObj(entity[id].group[k]);
+        }
+        entity=deleteIndex(entity,id).slice();
     }
 }
 function playercirclecollision(seed,range){
@@ -590,7 +612,10 @@ function enemyAction(e){
             deleteEntity(entity[entity.findIndex(a=>a.info.mother==e.info.tate)].seed);
         }
         if(e.info.name=="tate"){
-            deleteEntity(entity[entity.findIndex(a=>a.info.tate==e.info.mother)].seed);
+            const id=entity.findIndex(a=>a.info.tate==e.info.mother);
+            if(id!=-1){
+            deleteEntity(entity[id].seed);
+            }
         }
     }
     if(e.info.boomed){
@@ -694,72 +719,6 @@ if(e.info.movement.method=="jet"){
 }
 }
 function utility(){
-    entityn("life1",e=>{
-        if(game.hp<1){
-            e.info.hide=true;
-        }else{
-            e.info.hide=false;
-        }
-    });
-    entityn("life2",e=>{
-        if(game.hp<2){
-            e.info.hide=true;
-        }else{
-            e.info.hide=false;
-        }
-    });
-    entityn("life3",e=>{
-        if(game.hp<3){
-            e.info.hide=true;
-        }else{
-            e.info.hide=false;
-        }
-    });
-    if(game.tidalpower.value>game.tidalpower.max/6){
-            entityn("tidalpower1",a=>{
-                modelchange(a.seed,"cube2");
-            });
-        }else{
-            entityn("tidalpower1",a=>{
-                modelchange(a.seed,"cube_gray2");
-            });
-        }
-        if(game.tidalpower.value>2*game.tidalpower.max/6){
-            entityn("tidalpower2",a=>{
-                modelchange(a.seed,"cube2");
-            });
-        }else{
-            entityn("tidalpower2",a=>{
-                modelchange(a.seed,"cube_gray2");
-            });
-        }
-        if(game.tidalpower.value>3*game.tidalpower.max/6){
-            entityn("tidalpower3",a=>{
-                modelchange(a.seed,"cube2");
-            });
-        }else{
-            entityn("tidalpower3",a=>{
-                modelchange(a.seed,"cube_gray2");
-            });
-        }
-        if(game.tidalpower.value>4*game.tidalpower.max/6){
-            entityn("tidalpower4",a=>{
-                modelchange(a.seed,"cube2");
-            });
-        }else{
-            entityn("tidalpower4",a=>{
-                modelchange(a.seed,"cube_gray2");
-            });
-        }
-        if(game.tidalpower.value>5*game.tidalpower.max/6){
-            entityn("tidalpower5",a=>{
-                modelchange(a.seed,"cube2");
-            });
-        }else{
-            entityn("tidalpower5",a=>{
-                modelchange(a.seed,"cube_gray2");
-            });
-        }
         if(!end){
     print("scoredis",[0.9/aspect,-0.9],false,union(["ス","コ","ア"],numbers(game.scoreDisplay)));
     print("pinkshelldis",[-1.3,0.9],false,union(["pinkshell"],numbers(game.pinkshell)));
@@ -774,9 +733,6 @@ function utility(){
         game.scoreDisplay=game.score;
     }
     if(game.combo.chain>0){
-        entityn("combo1",a=>{
-                modelchange(a.seed,"cube");
-            });
         if(game.combo.timer>game.combo.interval*2/3){
             entityn("combo2",a=>{
                 modelchange(a.seed,"cube_gray");
@@ -973,6 +929,36 @@ function itemAction(e){
     }
 }
 function utilAction(e){
+    if(e.info.name=="life1"){
+        if(game.hp<1){
+            e.info.hide=true;
+        }else{
+            e.info.hide=false;
+        }
+    }
+    if(e.info.name=="life2"){
+        if(game.hp<2){
+            e.info.hide=true;
+        }else{
+            e.info.hide=false;
+        }
+    }
+    if(e.info.name=="life3"){
+        if(game.hp<3){
+            e.info.hide=true;
+        }else{
+            e.info.hide=false;
+        }
+    }
+    for(let k=1; k<6; ++k){
+        if(game.tidalpower.value>k*game.tidalpower.max/6 && e.info.name==`tidalpower${k}` && e.info.gray){
+                modelchange(e.seed,"cube2");
+                e.info.gray=false;
+        }else if(game.tidalpower.value<=k*game.tidalpower.max/6 && e.info.name==`tidalpower${k}` && !e.info.gray){
+                modelchange(e.seed,"cube_gray2");
+                e.info.gray=true;
+        }
+    }
     if(e.info.name=="scoregain"){
         e.mov[1]-=0.001;
         e.scale*=0.99;
@@ -1027,6 +1013,11 @@ function numbers(n){
 function print(name,posture,dynamic,a){
     for(let k=0; k<a.length; ++k){
         add(vec.sum(posture,[0.055*(k-a.length/2),0]),a[k],{name:name,dynamic:dynamic,attribute:"util",hide:false},0.4);
+    }
+}
+function prints(name,posture,dynamic,a){
+    for(let k=0; k<a.length; ++k){
+        add(vec.sum(posture,[size*(k-a.length/2),0]),a[k],{name:name,dynamic:dynamic,attribute:"util",hide:false},1);
     }
 }
 function printL(name,posture,dynamic,a){
@@ -1097,7 +1088,7 @@ function spawntate(pos){
             rotable:false,
             bombable:false,
             score:0,
-            extrarange:-0.02,
+            extrarange:0,
             movement:{method:"linear",interval:100,timer:math.rand(0,100),direction:vecexp(1,r),work:false},
             boomed:false
         });
@@ -1116,7 +1107,7 @@ function spawnEnemy(pos){
             rotable:true,
             bombable:true,
             score:100,
-            extrarange:0,
+            extrarange:0.02,
             movement:{method:"randomwalk",interval:100,timer:math.rand(0,100),direction:[0,0],work:false},
             rotor:{interval:20,timer:0,count:0,value:["circle","circle_rot1","circle","circle_rot2"]},
             boom:{interval:10,timer:0,count:0,value:["circle_boom1","circle_boom2","circle_boom3","circle_boom3"]},
@@ -1164,7 +1155,7 @@ function spawnEnemy(pos){
     }
 }
 }
-        game.enemy++;
+game.enemy++;
 }
 function has(upgradeName){
 
